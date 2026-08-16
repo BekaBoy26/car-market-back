@@ -1,8 +1,6 @@
 import { pool } from "../plugins/pg";
 import { ICarsBody, IGetCarsFilters } from "../types/types";
 import { apiErrors } from "../utils/apiError";
-import fs from "fs/promises";
-import path from "path";
 
 export const createCarService = async (body: ICarsBody, userId: number) => {
   const {
@@ -281,7 +279,7 @@ export const updateCarService = async (
   id: number,
   body: ICarsBody,
   userId: number,
-  files: Express.Multer.File[] = [],
+  images: string[] = [],
 ) => {
   const {
     brand_id,
@@ -318,9 +316,9 @@ export const updateCarService = async (
     throw apiErrors.notFound("Car not found");
   }
 
-  let keptImages: string[] = [];
+  let keptImages: string[] | null = null;
 
-  if (existingImages) {
+  if (existingImages !== undefined) {
     try {
       keptImages = JSON.parse(existingImages);
     } catch {
@@ -330,48 +328,37 @@ export const updateCarService = async (
 
   const currentImages = await pool.query(
     `
-      SELECT id, image_path
-      FROM car_images
-      WHERE car_id = $1
-    `,
+    SELECT id, image_path
+    FROM car_images
+    WHERE car_id = $1
+  `,
     [id],
   );
 
-  for (const image of currentImages.rows) {
-    if (!keptImages.includes(image.image_path)) {
-      await pool.query(
-        `
+  if (keptImages !== null) {
+    for (const image of currentImages.rows) {
+      if (!keptImages.includes(image.image_path)) {
+        await pool.query(
+          `
           DELETE FROM car_images
           WHERE id = $1
         `,
-        [image.id],
-      );
-
-      const filePath = path.join(
-        process.cwd(),
-        "src",
-        "uploads",
-        image.image_path,
-      );
-
-      try {
-        await fs.unlink(filePath);
-      } catch {
-        // Ignore missing files.
+          [image.id],
+        );
       }
     }
   }
 
-  for (const file of files) {
+  for (const image of images) {
     await pool.query(
       `
-        INSERT INTO car_images (
-          car_id,
-          image_path
-        )
-        VALUES ($1, $2)
-      `,
-      [id, file.filename],
+      INSERT INTO car_images (
+        car_id,
+        image_path
+      )
+      VALUES ($1, $2)
+    `,
+      [id, image],
     );
   }
 

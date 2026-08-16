@@ -8,5 +8,5 @@ export const CarSchema = z.object({
   price: z.coerce.number().min(1),
   description: z.string().optional(),
   condition: z.enum(["new", "used"]),
+  existingImages: z.string().optional(),
 });
-

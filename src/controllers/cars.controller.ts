@@ -7,6 +7,7 @@ import {
   getOneCarService,
   updateCarService,
 } from "../services/cars.service";
+import { uploadImage } from "../utils/cloudinary";
 
 export const postCarController = async (
   req: Request,
@@ -15,14 +16,17 @@ export const postCarController = async (
 ) => {
   try {
     const userId = req.user!.id;
+    const files = req.files as Express.Multer.File[];
+    const images: string[] = [];
 
-    const body = req.body;
-    const images = req.files
-      ? (req.files as Express.Multer.File[]).map((file) => file.filename)
-      : [];
+    for (const file of files || []) {
+      const image = await uploadImage(file.buffer);
+      images.push(image.url);
+    }
+
     const result = await createCarService(
       {
-        ...body,
+        ...req.body,
         images,
       },
       userId,
@@ -136,6 +140,7 @@ export const deleteCarController = async (
     next(error);
   }
 };
+
 export const updateCarController = async (
   req: Request,
   res: Response,
@@ -144,13 +149,15 @@ export const updateCarController = async (
   try {
     const userId = req.user!.id;
     const id = Number(req.params.id);
+    const files = req.files as Express.Multer.File[];
+    const images: string[] = [];
 
-    const result = await updateCarService(
-      id,
-      req.body,
-      userId,
-      req.files as Express.Multer.File[],
-    );
+    for (const file of files || []) {
+      const image = await uploadImage(file.buffer);
+      images.push(image.url);
+    }
+
+    const result = await updateCarService(id, req.body, userId, images);
 
     res.status(200).json({
       message: "Successfully updated",
